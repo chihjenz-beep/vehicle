@@ -579,8 +579,7 @@ window._cancelEdit = function(){
   window._clearForm();
 };
 
-/* ── 匯出set/ref供addRecord更新用 ── */
-window._fbFns = { ref, set };
+/* ── 刪除（從Firebase移除）── */
 window._del = function(fbKey){
   if(!confirm('確定刪除此筆紀錄？')) return;
   remove(ref(db, 'vehicle_records/'+fbKey));
