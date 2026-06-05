@@ -217,7 +217,7 @@ tr:hover td{background:#eff6ff;}
 .td-arrow{color:var(--muted2);margin:0 4px;}
 .td-purpose{font-size:12px;color:var(--text);}
 .td-driver{font-weight:600;color:var(--text);}
-.td-km{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent2);}
+.td-km{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent2);white-space:normal !important;line-height:1.6;}
 .td-note{font-size:12px;color:var(--muted);min-width:80px;}
 .board-empty{text-align:center;padding:48px;color:var(--muted);font-size:13px;}
 
@@ -353,13 +353,13 @@ tr:hover td{background:#eff6ff;}
               <col class="col-depart"><col class="col-arrive">
               <col class="col-from"><col class="col-to">
               <col class="col-purpose"><col class="col-driver">
-              <col class="col-km"><col class="col-km"><col class="col-km">
+              <col style="width:160px;">
             </colgroup>
             <thead>
               <tr>
                 <th>日期</th><th>開始時間</th><th>結束時間</th>
                 <th>出發地點</th><th>目的地點</th><th>用途</th>
-                <th>駕駛員</th><th>開始里程</th><th>結束里程</th><th>區間里程</th>
+                <th>駕駛員</th><th>里程</th>
               </tr>
             </thead>
             <tbody id="board-tbody"></tbody>
@@ -468,7 +468,7 @@ function renderForm(){
 function renderBoard(){
   const tbody = document.getElementById('board-tbody');
   if(!records.length){
-    tbody.innerHTML='<tr><td colspan="10" class="board-empty">尚無出勤紀錄，請至「紀錄管理」新增資料</td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" class="board-empty">尚無出勤紀錄，請至「紀錄管理」新增資料</td></tr>';
     ['b-total','b-drivers','b-trips','b-km'].forEach(id=>document.getElementById(id).textContent=0);
     return;
   }
@@ -481,9 +481,12 @@ function renderBoard(){
       <td class="td-place">${r.to||'—'}</td>
       <td class="td-purpose">${r.purpose||'—'}</td>
       <td class="td-driver">${r.driver||'—'}</td>
-      <td class="td-km">${r.kmS||'—'}</td>
-      <td class="td-km">${r.kmE||'—'}</td>
-      <td class="td-km" style="color:var(--accent3);font-weight:600;">${(r.kmS&&r.kmE&&parseInt(r.kmE)>parseInt(r.kmS))?(parseInt(r.kmE)-parseInt(r.kmS))+' km':'—'}</td>
+      <td class="td-km">${(()=>{
+        const s=r.kmS, e=r.kmE;
+        if(!s&&!e) return '—';
+        const diff=(s&&e&&parseInt(e)>parseInt(s))?' （'+(parseInt(e)-parseInt(s))+' km）':'';
+        return (s||'—')+' → '+(e||'—')+'<br><span style="color:var(--accent3);font-weight:600;font-size:11px;">'+diff.trim()+'</span>';
+      })()}</td>
     </tr>`).join('');
 
   const drivers = new Set(records.map(r=>r.driver).filter(Boolean));
