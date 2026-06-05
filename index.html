@@ -530,10 +530,10 @@ window._addRecord = function(){
   // 編輯模式：更新現有資料
   const editKey = document.getElementById('btn-submit').dataset.editKey;
   if(editKey){
-    const { set } = window._fbFns;
-    const { ref: fbRef } = window._fbFns;
-    set(fbRef(db, 'vehicle_records/'+editKey), {
-      ts: Date.now(), date, start:g('f-start'), end:g('f-end'),
+    const orig = records.find(r=>r.fbKey===editKey);
+    set(ref(db, 'vehicle_records/'+editKey), {
+      ts: orig ? orig.ts : Date.now(),
+      date, start:g('f-start'), end:g('f-end'),
       from, to, purpose:g('f-purpose'), driver, kmS, kmE, km
     });
     window._cancelEdit();
