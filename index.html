@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公務車管理看板｜平安家園</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#050d1a; --panel:#0a1628; --panel2:#0c1d35;
+  --border:#1a3a5c; --border2:#0f2a48;
+  --accent:#1e90ff; --accent2:#00c8a0; --accent3:#f5a623;
+  --text:#e8f4ff; --muted:#4a6a88; --muted2:#7a9bb8;
+  --row-alt:#0d2040;
+  --hdr:#1B5E9E; --hdr-text:#ffffff;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ═══ SHARED NAV ═══ */
+.nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 32px;
+  background:rgba(10,22,40,0.97);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:50;
+  backdrop-filter:blur(10px);
+}
+.nav-left{display:flex;align-items:center;gap:12px;}
+.nav-logo{
+  width:38px;height:38px;border-radius:8px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:700;color:#fff;
+}
+.nav-org{font-size:13px;font-weight:500;color:var(--text);}
+.nav-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+.nav-tabs{display:flex;gap:4px;}
+.tab-btn{
+  padding:6px 18px;border-radius:6px;border:1px solid transparent;
+  background:transparent;color:var(--muted);font-size:13px;
+  font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:.2s;
+}
+.tab-btn:hover{background:rgba(255,255,255,0.05);color:var(--text);}
+.tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.nav-clock{
+  font-family:'JetBrains Mono',monospace;font-size:20px;
+  color:var(--text);letter-spacing:1px;text-align:right;
+}
+.nav-date{font-size:11px;color:var(--muted);text-align:right;margin-top:2px;font-family:'JetBrains Mono',monospace;}
+
+/* ═══ PAGE WRAPPER ═══ */
+.page{display:none;padding:28px 32px;}
+.page.active{display:block;}
+
+/* ═══ FORM PAGE ═══ */
+.form-card{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--radius);padding:20px 24px;margin-bottom:20px;
+}
+.fc-title{font-size:13px;font-weight:500;color:var(--muted2);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:11px;color:var(--muted);}
+.field input,.field select{
+  font-size:13px;padding:7px 10px;
+  border:1px solid var(--border);border-radius:6px;
+  background:rgba(255,255,255,0.04);color:var(--text);
+  font-family:'Noto Sans TC',sans-serif;
+}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent);}
+.field input::placeholder{color:var(--muted);}
+.btn-row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
+.btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:7px 16px;font-size:13px;border-radius:6px;
+  border:1px solid var(--border);background:rgba(255,255,255,0.05);
+  color:var(--text);cursor:pointer;font-family:'Noto Sans TC',sans-serif;
+  transition:.2s;
+}
+.btn:hover{background:rgba(255,255,255,0.1);}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn.primary:hover{background:#1070cc;}
+.btn.danger-sm{background:none;border:none;color:#E24B4A;cursor:pointer;padding:2px 6px;font-size:14px;}
+
+/* 管理表格 */
+.tbl-wrap{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.tbl-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px;background:var(--panel2);border-bottom:1px solid var(--border);
+}
+.tbl-head-title{font-size:13px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:8px;}
+.badge{
+  font-size:11px;background:rgba(30,144,255,0.15);color:var(--accent);
+  border:1px solid rgba(30,144,255,0.3);border-radius:20px;padding:1px 8px;
+}
+.search-bar{padding:8px 20px;background:rgba(13,29,53,0.6);border-bottom:1px solid var(--border2);}
+.search-bar input{
+  width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);
+  border-radius:6px;padding:6px 12px;font-size:12px;color:var(--text);
+  font-family:'Noto Sans TC',sans-serif;
+}
+.search-bar input:focus{outline:none;border-color:var(--accent);}
+.search-bar input::placeholder{color:var(--muted);}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
+th{
+  padding:9px 14px;text-align:left;font-size:11px;font-weight:500;
+  color:var(--muted);background:rgba(10,22,40,0.6);
+  border-bottom:1px solid var(--border);white-space:nowrap;
+  letter-spacing:.5px;
+}
+td{padding:11px 14px;color:var(--text);border-bottom:1px solid var(--border2);vertical-align:middle;word-break:break-all;}
+tr:last-child td{border-bottom:none;}
+tr:nth-child(even) td{background:rgba(13,32,64,0.3);}
+tr:hover td{background:rgba(30,144,255,0.05);}
+.empty-row td{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+/* ═══ BOARD PAGE ═══ */
+#page-board{padding:0;}
+.board-wrap{
+  min-height:calc(100vh - 63px);
+  display:grid;grid-template-rows:auto 1fr auto;
+  position:relative;
+}
+/* grid bg */
+.board-wrap::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(30,144,255,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(30,144,255,0.03) 1px,transparent 1px);
+  background-size:52px 52px;
+}
+/* glow */
+.board-wrap::after{
+  content:'';position:absolute;top:-80px;left:50%;transform:translateX(-50%);
+  width:800px;height:200px;pointer-events:none;
+  background:radial-gradient(ellipse,rgba(30,144,255,0.1) 0%,transparent 70%);
+}
+
+.board-header{
+  position:relative;z-index:1;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 40px 16px;
+  border-bottom:1px solid var(--border);
+}
+.board-title-block{text-align:center;flex:1;}
+.board-title{
+  font-family:'Bebas Neue','Noto Sans TC',sans-serif;
+  font-size:36px;letter-spacing:8px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.board-subtitle{font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:2px;}
+
+/* 統計列 */
+.stats-row{
+  position:relative;z-index:1;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
+  padding:18px 40px 0;
+}
+.stat-card{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 18px;
+  display:flex;align-items:center;gap:14px;
+  position:relative;overflow:hidden;
+}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:var(--radius) var(--radius) 0 0;}
+.stat-card.c-blue::before{background:var(--accent);}
+.stat-card.c-green::before{background:var(--accent2);}
+.stat-card.c-orange::before{background:var(--accent3);}
+.stat-card.c-gray::before{background:var(--muted);}
+.stat-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.c-blue .stat-icon{background:rgba(30,144,255,0.15);}
+.c-green .stat-icon{background:rgba(0,200,160,0.15);}
+.c-orange .stat-icon{background:rgba(245,166,35,0.15);}
+.c-gray .stat-icon{background:rgba(90,122,153,0.12);}
+.stat-num{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;line-height:1;}
+.c-blue .stat-num{color:var(--accent);}
+.c-green .stat-num{color:var(--accent2);}
+.c-orange .stat-num{color:var(--accent3);}
+.c-gray .stat-num{color:var(--muted);}
+.stat-label{font-size:11px;color:var(--muted);margin-top:3px;}
+
+/* 看板主表格 */
+.board-main{
+  position:relative;z-index:1;
+  padding:18px 40px;display:flex;flex-direction:column;gap:0;
+}
+.board-tbl-wrap{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;flex:1;
+}
+.board-tbl-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 22px;background:var(--panel2);border-bottom:1px solid var(--border);
+}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--accent2);animation:pulse 2s infinite;flex-shrink:0;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,200,160,.4);}50%{box-shadow:0 0 0 6px rgba(0,200,160,0);}}
+.board-tbl-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text);}
+.updated{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+
+/* 看板表格欄寬 */
+.board-table{width:100%;border-collapse:collapse;table-layout:fixed;}
+.board-table th{
+  padding:9px 10px;text-align:left;font-size:11px;font-weight:500;
+  color:var(--muted);background:rgba(5,13,26,0.5);
+  border-bottom:1px solid var(--border);letter-spacing:1px;white-space:nowrap;
+}
+.board-table td{
+  padding:12px 10px;font-size:13px;color:var(--text);
+  border-bottom:1px solid var(--border2);vertical-align:middle;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.board-table tr:last-child td{border-bottom:none;}
+.board-table tr:nth-child(even) td{background:rgba(13,32,64,0.35);}
+.board-table tr:hover td{background:rgba(30,144,255,0.05);}
+.board-table tr{animation:rowIn .3s ease both;}
+@keyframes rowIn{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:none;}}
+
+.col-date{width:108px;}
+.col-depart{width:68px;}
+.col-arrive{width:68px;}
+.col-from{width:100px;}
+.col-to{width:100px;}
+.col-purpose{width:110px;}
+.col-driver{width:90px;}
+
+.td-seq{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);}
+.td-date{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted2);}
+.td-time{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);}
+.td-place{font-size:13px;color:#9bbfdf;}
+.td-arrow{color:var(--muted);margin:0 4px;}
+.td-purpose{font-size:12px;color:var(--muted2);}
+.td-driver{font-weight:500;}
+.td-km{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent2);}
+.td-note{font-size:12px;color:var(--muted2);min-width:80px;}
+.board-empty{text-align:center;padding:48px;color:var(--muted);font-size:13px;}
+
+/* 底欄 */
+.board-footer{
+  position:relative;z-index:1;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 40px;border-top:1px solid var(--border);
+  background:rgba(10,22,40,0.95);
+  font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-left">
+    <div class="nav-logo">平</div>
+    <div>
+      <div class="nav-org">嘉義縣平安家園多元關懷協會</div>
+      <div class="nav-sub">公務車使用紀錄表</div>
+    </div>
+  </div>
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('form')">📋 紀錄管理</button>
+    <button class="tab-btn" onclick="switchTab('board')">📺 佈告看板</button>
+  </div>
+  <div>
+    <div class="nav-clock" id="nav-clock">--:--:--</div>
+  </div>
+</div>
+
+<!-- ═══ 頁面A：紀錄管理 ═══ -->
+<div class="page active" id="page-form">
+
+  <div class="form-card">
+    <div class="fc-title">＋ 新增紀錄</div>
+    <div class="form-grid">
+      <div class="field"><label>日期</label><input type="date" id="f-date"></div>
+      <div class="field"><label>開始時間</label><input type="time" id="f-start"></div>
+      <div class="field"><label>結束時間</label><input type="time" id="f-end"></div>
+      <div class="field"><label>出發地點</label><input type="text" id="f-from" placeholder="例：協會"></div>
+      <div class="field"><label>目的地點</label><input type="text" id="f-to" placeholder="例：嘉義市政府"></div>
+      <div class="field"><label>用途</label><input type="text" id="f-purpose" placeholder="例：送餐服務"></div>
+      <div class="field"><label>駕駛員</label><input type="text" id="f-driver" placeholder="姓名"></div>
+      <div class="field"><label>開始里程 (km)</label><input type="number" id="f-km-s" placeholder="12345" min="0"></div>
+      <div class="field"><label>結束里程 (km)</label><input type="number" id="f-km-e" placeholder="12378" min="0"></div>
+
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="clearForm()">清除</button>
+      <button class="btn primary" onclick="addRecord()">✓ 新增</button>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <div class="tbl-head">
+      <div class="tbl-head-title">使用紀錄 <span class="badge" id="form-badge">0 筆</span></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="exportCSV()">↓ 匯出 CSV</button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="search" placeholder="搜尋日期、地點、駕駛員、用途…" oninput="renderForm()">
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <colgroup>
+          <col style="width:36px"><col style="width:88px"><col style="width:72px">
+          <col style="width:72px"><col style="width:110px"><col style="width:110px">
+          <col style="width:110px"><col style="width:80px"><col style="width:88px">
+          <col style="width:88px"><col style="width:36px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>#</th><th>日期</th><th>開始</th><th>結束</th>
+            <th>出發地點</th><th>目的地點</th><th>用途</th>
+            <th>駕駛員</th><th>開始里程</th><th>結束里程</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="form-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 頁面B：佈告看板 ═══ -->
+<div class="page" id="page-board">
+  <div class="board-wrap">
+
+    <div class="board-header">
+      <div style="width:200px;"></div>
+      <div class="board-title-block">
+        <div class="board-title">公務車出勤紀錄</div>
+        <div class="board-subtitle">嘉義縣平安家園多元關懷協會</div>
+      </div>
+      <div style="width:200px;text-align:right;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:28px;color:var(--text);" id="board-clock">--:--:--</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;font-family:'JetBrains Mono',monospace;" id="board-date"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="stats-row">
+        <div class="stat-card c-blue">
+          <div class="stat-icon">🚗</div>
+          <div><div class="stat-num" id="b-total">0</div><div class="stat-label">總筆數</div></div>
+        </div>
+        <div class="stat-card c-green">
+          <div class="stat-icon">👤</div>
+          <div><div class="stat-num" id="b-drivers">0</div><div class="stat-label">出勤駕駛員</div></div>
+        </div>
+        <div class="stat-card c-orange">
+          <div class="stat-icon">📍</div>
+          <div><div class="stat-num" id="b-trips">0</div><div class="stat-label">今日出車次數</div></div>
+        </div>
+        <div class="stat-card c-gray">
+          <div class="stat-icon">🛣️</div>
+          <div><div class="stat-num" id="b-km">0</div><div class="stat-label">累計里程 (km)</div></div>
+        </div>
+      </div>
+
+      <div class="board-main">
+        <div class="board-tbl-wrap">
+          <div class="board-tbl-head">
+            <div class="board-tbl-title"><div class="live-dot"></div>完整出勤紀錄</div>
+            <div class="updated" id="board-updated">—</div>
+          </div>
+          <table class="board-table">
+            <colgroup>
+              <col class="col-date">
+              <col class="col-depart"><col class="col-arrive">
+              <col class="col-from"><col class="col-to">
+              <col class="col-purpose"><col class="col-driver">
+              <col class="col-km"><col class="col-km"><col class="col-km">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>日期</th><th>開始時間</th><th>結束時間</th>
+                <th>出發地點</th><th>目的地點</th><th>用途</th>
+                <th>駕駛員</th><th>開始里程</th><th>結束里程</th><th>區間里程</th>
+              </tr>
+            </thead>
+            <tbody id="board-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="board-footer">
+      <span id="board-footer-left">如有緊急事項請聯繫辦公室</span>
+      <span id="board-footer-right"></span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const DAYS = ['日','一','二','三','四','五','六'];
+let records = JSON.parse(localStorage.getItem('pah_vehicle_v2') || '[]');
+
+function pad(n){ return String(n).padStart(2,'0'); }
+
+/* ── 時鐘 ── */
+function tick(){
+  const now = new Date();
+  const t = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  const d = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} 週${DAYS[now.getDay()]}`;
+  document.getElementById('nav-clock').textContent = t;
+  document.getElementById('board-clock').textContent = t;
+  document.getElementById('board-date').textContent = d;
+  document.getElementById('board-footer-right').textContent =
+    `資料日期：${now.getFullYear()} 年 ${now.getMonth()+1} 月 ${now.getDate()} 日`;
+}
+setInterval(tick, 1000); tick();
+
+/* ── 初始化 ── */
+window.addEventListener('load', () => {
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  renderAll();
+});
+
+function save(){ localStorage.setItem('pah_vehicle_v2', JSON.stringify(records)); }
+
+function renderAll(){ renderForm(); renderBoard(); }
+
+/* ── 管理表格渲染 ── */
+function renderForm(){
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = records.filter(r =>
+    [r.date,r.from,r.to,r.purpose,r.driver].some(v => v && v.toLowerCase().includes(q))
+  );
+  document.getElementById('form-badge').textContent = filtered.length + ' 筆';
+  const tbody = document.getElementById('form-tbody');
+  if(!filtered.length){
+    tbody.innerHTML='<tr class="empty-row"><td colspan="10">尚無紀錄，請在上方填寫新增</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map((r,i) => `
+    <tr>
+      <td class="mono" style="color:var(--muted);font-size:11px">${String(i+1).padStart(2,'0')}</td>
+      <td class="mono" style="font-size:12px">${r.date}</td>
+      <td class="mono" style="font-size:12px">${r.start||'—'}</td>
+      <td class="mono" style="font-size:12px">${r.end||'—'}</td>
+      <td style="font-size:12px;color:#9bbfdf">${r.from||'—'}</td>
+      <td style="font-size:12px;color:#9bbfdf">${r.to||'—'}</td>
+      <td style="font-size:12px">${r.purpose||'—'}</td>
+      <td style="font-size:12px;font-weight:500">${r.driver||'—'}</td>
+      <td class="mono" style="font-size:12px;color:var(--accent2)">${r.kmS||'—'}</td>
+      <td class="mono" style="font-size:12px;color:var(--accent2)">${r.kmE||'—'}</td>
+      <td><button class="danger-sm" onclick="del(${r.id})">×</button></td>
+    </tr>`).join('');
+}
+
+/* ── 看板渲染 ── */
+function renderBoard(){
+  const tbody = document.getElementById('board-tbody');
+  if(!records.length){
+    tbody.innerHTML='<tr><td colspan="10" class="board-empty">尚無出勤紀錄，請至「紀錄管理」新增資料</td></tr>';
+    document.getElementById('b-total').textContent = 0;
+    document.getElementById('b-drivers').textContent = 0;
+    document.getElementById('b-trips').textContent = 0;
+    document.getElementById('b-km').textContent = 0;
+    return;
+  }
+
+  tbody.innerHTML = records.map((r,i) => `
+    <tr style="animation-delay:${i*0.04}s">
+      <td class="td-date">${r.date}</td>
+      <td class="td-time">${r.start||'—'}</td>
+      <td class="td-time">${r.end||'—'}</td>
+      <td class="td-place">${r.from||'—'}</td>
+      <td class="td-place">${r.to||'—'}</td>
+      <td class="td-purpose">${r.purpose||'—'}</td>
+      <td class="td-driver">${r.driver||'—'}</td>
+      <td class="td-km">${r.kmS||'—'}</td>
+      <td class="td-km">${r.kmE||'—'}</td>
+      <td class="td-km" style="color:var(--accent3);font-weight:600;">${(r.kmS&&r.kmE&&parseInt(r.kmE)>parseInt(r.kmS)) ? (parseInt(r.kmE)-parseInt(r.kmS))+' km' : '—'}</td>
+    </tr>`).join('');
+
+  const drivers = new Set(records.map(r=>r.driver).filter(Boolean));
+  let totalKm = 0;
+  records.forEach(r=>{
+    if(r.kmS && r.kmE){
+      const d = parseInt(r.kmE) - parseInt(r.kmS);
+      if(d>0) totalKm += d;
+    }
+  });
+
+  const today = new Date().toISOString().slice(0,10);
+  const todayTrips = records.filter(r => r.date === today).length;
+
+  document.getElementById('b-total').textContent = records.length;
+  document.getElementById('b-drivers').textContent = drivers.size;
+  document.getElementById('b-trips').textContent = todayTrips;
+  document.getElementById('b-km').textContent = totalKm || '—';
+
+  const now = new Date();
+  document.getElementById('board-updated').textContent =
+    `最後更新 ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+/* ── 新增 ── */
+function addRecord(){
+  const g = id => document.getElementById(id).value.trim();
+  const date=g('f-date'), driver=g('f-driver'), from=g('f-from'), to=g('f-to');
+  if(!date||!driver||!from||!to){ alert('請填寫：日期、駕駛員、起訖地點'); return; }
+  const kmS=g('f-km-s'), kmE=g('f-km-e');
+  let km = '';
+  if(kmS && kmE){ const d=parseInt(kmE)-parseInt(kmS); if(d>=0) km=d+' km'; }
+  records.unshift({ id:Date.now(), date, start:g('f-start'), end:g('f-end'),
+    from, to, purpose:g('f-purpose'), driver, kmS, kmE, km });
+  save(); renderAll();
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  ['f-start','f-end','f-from','f-to','f-purpose','f-driver','f-km-s','f-km-e']
+    .forEach(id => document.getElementById(id).value='');
+}
+
+/* ── 刪除 ── */
+function del(id){
+  if(!confirm('確定刪除此筆紀錄？')) return;
+  records = records.filter(r => r.id !== id);
+  save(); renderAll();
+}
+
+/* ── 清除表單 ── */
+function clearForm(){
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  ['f-start','f-end','f-from','f-to','f-purpose','f-driver','f-km-s','f-km-e']
+    .forEach(id => document.getElementById(id).value='');
+}
+
+/* ── 匯出CSV ── */
+function exportCSV(){
+  const hdrs = ['日期','開始時間','結束時間','出發地點','目的地點','用途','駕駛員','開始里程','結束里程','行駛里程'];
+  const rows = records.map(r => [r.date,r.start,r.end,r.from,r.to,r.purpose,r.driver,r.kmS,r.kmE,r.km]
+    .map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(','));
+  const csv = '\uFEFF' + [hdrs.join(','),...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download = `公務車紀錄_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+/* ── 切換頁面 ── */
+function switchTab(tab){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+tab).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if(tab==='board') renderBoard();
+}
+</script>
+</body>
+</html>
