@@ -563,6 +563,7 @@ window._addRecord = function(){
   if(kmS&&kmE){ const d=parseInt(kmE)-parseInt(kmS); if(d>=0) km=d+' km'; }
 
   // 編輯模式：更新現有資料
+  const editKey = document.getElementById('btn-submit').dataset.editKey;
   if(editKey){
     const orig = records.find(r=>r.fbKey===editKey);
     set(ref(db, 'vehicle_records/'+editKey), {
@@ -586,7 +587,6 @@ window._edit = function(fbKey){
   const r = records.find(r=>r.fbKey===fbKey);
   if(!r) return;
   document.getElementById('f-date').value = r.date||'';
-  document.getElementById('f-plate').value = r.plate||'';
   document.getElementById('f-start').value = r.start||'';
   document.getElementById('f-end').value = r.end||'';
   document.getElementById('f-from').value = r.from||'';
