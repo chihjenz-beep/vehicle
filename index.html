@@ -352,18 +352,17 @@ tr:hover td{background:#eff6ff;}
           <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
           <table class="board-table">
             <colgroup>
-              <col style="width:60px;">
               <col class="col-date">
               <col class="col-depart"><col class="col-arrive">
               <col class="col-from"><col class="col-to">
               <col class="col-purpose"><col class="col-driver">
-              <col style="width:64px;"><col style="width:160px;">
+              <col style="width:160px;">
             </colgroup>
             <thead>
               <tr>
-                <th>狀態</th><th>日期</th><th>開始時間</th><th>結束時間</th>
+                <th>日期</th><th>開始時間</th><th>結束時間</th>
                 <th>出發地點</th><th>目的地點</th><th>用途</th>
-                <th>駕駛員</th><th>出勤</th><th>里程</th>
+                <th>駕駛員</th><th>里程</th>
               </tr>
             </thead>
             <tbody id="board-tbody"></tbody>
@@ -473,27 +472,9 @@ function renderForm(){
 function renderBoard(){
   const tbody = document.getElementById('board-tbody');
   if(!records.length){
-    tbody.innerHTML='<tr><td colspan="9" class="board-empty">尚無出勤紀錄，請至「紀錄管理」新增資料</td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" class="board-empty">尚無出勤紀錄，請至「紀錄管理」新增資料</td></tr>';
     ['b-total','b-drivers','b-trips','b-km'].forEach(id=>document.getElementById(id).textContent=0);
     return;
-  }
-
-  function getStatus(r){
-    const now = new Date();
-    const today = now.toISOString().slice(0,10);
-    if(r.date !== today) return 'other';
-    const hm = h => { const [a,b]=(h||'').split(':'); return parseInt(a)*60+parseInt(b||0); };
-    const cur = now.getHours()*60+now.getMinutes();
-    const s = hm(r.start), e = hm(r.end);
-    if(s && e && cur>=s && cur<=e) return 'active';
-    if(s && cur<s) return 'waiting';
-    return 'done';
-  }
-
-  function statusBadge(r){
-    const st = getStatus(r);
-    if(st==='active') return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#dcfce7;color:#15803d;border:1px solid #86efac;"><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;display:inline-block;box-shadow:0 0 0 3px rgba(22,163,74,0.3);animation:pulse 2s infinite;"></span>出勤</span>';
-    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;color:#94a3b8;border:1px solid #e2e8f0;"><span style="width:7px;height:7px;border-radius:50%;background:#cbd5e1;display:inline-block;"></span>出勤</span>';
   }
 
   tbody.innerHTML = records.map((r,i) => `
@@ -505,7 +486,6 @@ function renderBoard(){
       <td class="td-place">${r.to||'—'}</td>
       <td class="td-purpose">${r.purpose||'—'}</td>
       <td class="td-driver">${r.driver||'—'}</td>
-      <td>${statusBadge(r)}</td>
       <td class="td-km">${(()=>{
         const s=r.kmS, e=r.kmE;
         if(!s&&!e) return '—';
