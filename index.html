@@ -455,8 +455,10 @@ function updateLamp(now){
   const onDuty = records.some(r => {
     if(r.date !== today) return false;
     const s = hm(r.start), e = hm(r.end);
-    if(s===null || e===null) return false;
-    return cur >= s && cur <= e;
+    if(s===null) return false;
+    if(cur < s) return false;           // 尚未到開始時間
+    if(e===null) return true;           // 已過開始、結束時間未填 → 視為出勤中
+    return cur <= e;                    // 在開始與結束之間
   });
   lamp.className = 'duty-lamp ' + (onDuty ? 'duty-on' : 'duty-off');
 }
