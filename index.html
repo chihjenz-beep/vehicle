@@ -278,6 +278,7 @@ tr:hover td{background:#eff6ff;}
       <div class="tbl-head-title">使用紀錄 <span class="badge" id="form-badge">0 筆</span></div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="window._exportCSV()">↓ 匯出 CSV</button>
+        <button class="btn" onclick="window._backupJSON()">↓ 備份 JSON</button>
       </div>
     </div>
     <div class="search-bar">
@@ -312,7 +313,9 @@ tr:hover td{background:#eff6ff;}
       <div style="width:200px;"></div>
       <div class="board-title-block">
         <div class="board-title">公務車出勤紀錄</div>
-        <div class="board-subtitle">嘉義縣平安家園多元關懷協會</div>
+        <div class="board-subtitle">嘉義縣平安家園多元關懷協會　
+          <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);font-weight:700;letter-spacing:2px;">BEW-0903</span>
+        </div>
       </div>
       <div style="width:200px;text-align:right;">
         <div style="font-family:'JetBrains Mono',monospace;font-size:28px;color:var(--text);" id="board-clock">--:--:--</div>
@@ -349,17 +352,18 @@ tr:hover td{background:#eff6ff;}
           <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
           <table class="board-table">
             <colgroup>
+              <col style="width:60px;">
               <col class="col-date">
               <col class="col-depart"><col class="col-arrive">
               <col class="col-from"><col class="col-to">
               <col class="col-purpose"><col class="col-driver">
-              <col style="width:160px;">
+              <col style="width:64px;"><col style="width:160px;">
             </colgroup>
             <thead>
               <tr>
-                <th>日期</th><th>開始時間</th><th>結束時間</th>
+                <th>狀態</th><th>日期</th><th>開始時間</th><th>結束時間</th>
                 <th>出發地點</th><th>目的地點</th><th>用途</th>
-                <th>駕駛員</th><th>里程</th>
+                <th>駕駛員</th><th>出勤</th><th>里程</th>
               </tr>
             </thead>
             <tbody id="board-tbody"></tbody>
@@ -413,6 +417,7 @@ function tick(){
     `資料日期：${now.getFullYear()} 年 ${now.getMonth()+1} 月 ${now.getDate()} 日`;
 }
 setInterval(tick, 1000); tick();
+setInterval(()=>{ if(records.length) renderBoard(); }, 60000);
 
 /* ── Firebase 即時監聽 ── */
 onValue(recordsRef, (snapshot) => {
@@ -442,7 +447,7 @@ function renderForm(){
   document.getElementById('form-badge').textContent = filtered.length + ' 筆';
   const tbody = document.getElementById('form-tbody');
   if(!filtered.length){
-    tbody.innerHTML='<tr class="empty-row"><td colspan="10">尚無紀錄，請在上方填寫新增</td></tr>';
+    tbody.innerHTML='<tr class="empty-row"><td colspan="11">尚無紀錄，請在上方填寫新增</td></tr>';
     return;
   }
   tbody.innerHTML = filtered.map((r,i) => `
@@ -451,8 +456,8 @@ function renderForm(){
       <td class="mono" style="font-size:12px">${r.date}</td>
       <td class="mono" style="font-size:12px">${r.start||'—'}</td>
       <td class="mono" style="font-size:12px">${r.end||'—'}</td>
-      <td style="font-size:12px;color:#9bbfdf">${r.from||'—'}</td>
-      <td style="font-size:12px;color:#9bbfdf">${r.to||'—'}</td>
+      <td style="font-size:12px;color:#1e40af">${r.from||'—'}</td>
+      <td style="font-size:12px;color:#1e40af">${r.to||'—'}</td>
       <td style="font-size:12px">${r.purpose||'—'}</td>
       <td style="font-size:12px;font-weight:500">${r.driver||'—'}</td>
       <td class="mono" style="font-size:12px;color:var(--accent2)">${r.kmS||'—'}</td>
@@ -468,10 +473,29 @@ function renderForm(){
 function renderBoard(){
   const tbody = document.getElementById('board-tbody');
   if(!records.length){
-    tbody.innerHTML='<tr><td colspan="8" class="board-empty">尚無出勤紀錄，請至「紀錄管理」新增資料</td></tr>';
+    tbody.innerHTML='<tr><td colspan="9" class="board-empty">尚無出勤紀錄，請至「紀錄管理」新增資料</td></tr>';
     ['b-total','b-drivers','b-trips','b-km'].forEach(id=>document.getElementById(id).textContent=0);
     return;
   }
+
+  function getStatus(r){
+    const now = new Date();
+    const today = now.toISOString().slice(0,10);
+    if(r.date !== today) return 'other';
+    const hm = h => { const [a,b]=(h||'').split(':'); return parseInt(a)*60+parseInt(b||0); };
+    const cur = now.getHours()*60+now.getMinutes();
+    const s = hm(r.start), e = hm(r.end);
+    if(s && e && cur>=s && cur<=e) return 'active';
+    if(s && cur<s) return 'waiting';
+    return 'done';
+  }
+
+  function statusBadge(r){
+    const st = getStatus(r);
+    if(st==='active') return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#dcfce7;color:#15803d;border:1px solid #86efac;"><span style="width:7px;height:7px;border-radius:50%;background:#16a34a;display:inline-block;box-shadow:0 0 0 3px rgba(22,163,74,0.3);animation:pulse 2s infinite;"></span>出勤</span>';
+    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;color:#94a3b8;border:1px solid #e2e8f0;"><span style="width:7px;height:7px;border-radius:50%;background:#cbd5e1;display:inline-block;"></span>出勤</span>';
+  }
+
   tbody.innerHTML = records.map((r,i) => `
     <tr style="animation-delay:${i*0.04}s">
       <td class="td-date">${r.date}</td>
@@ -481,6 +505,7 @@ function renderBoard(){
       <td class="td-place">${r.to||'—'}</td>
       <td class="td-purpose">${r.purpose||'—'}</td>
       <td class="td-driver">${r.driver||'—'}</td>
+      <td>${statusBadge(r)}</td>
       <td class="td-km">${(()=>{
         const s=r.kmS, e=r.kmE;
         if(!s&&!e) return '—';
@@ -515,7 +540,6 @@ window._addRecord = function(){
   if(kmS&&kmE){ const d=parseInt(kmE)-parseInt(kmS); if(d>=0) km=d+' km'; }
 
   // 編輯模式：更新現有資料
-  const editKey = document.getElementById('btn-submit').dataset.editKey;
   if(editKey){
     const orig = records.find(r=>r.fbKey===editKey);
     set(ref(db, 'vehicle_records/'+editKey), {
@@ -527,7 +551,6 @@ window._addRecord = function(){
     return;
   }
 
-  // 新增模式
   push(recordsRef, { ts:Date.now(), date, start:g('f-start'), end:g('f-end'),
     from, to, purpose:g('f-purpose'), driver, kmS, kmE, km });
   document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
@@ -540,6 +563,7 @@ window._edit = function(fbKey){
   const r = records.find(r=>r.fbKey===fbKey);
   if(!r) return;
   document.getElementById('f-date').value = r.date||'';
+  document.getElementById('f-plate').value = r.plate||'';
   document.getElementById('f-start').value = r.start||'';
   document.getElementById('f-end').value = r.end||'';
   document.getElementById('f-from').value = r.from||'';
@@ -572,11 +596,20 @@ window._del = function(fbKey){
   remove(ref(db, 'vehicle_records/'+fbKey));
 };
 
-/* ── 清除表單 ── */
 window._clearForm = function(){
   document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
   ['f-start','f-end','f-from','f-to','f-purpose','f-driver','f-km-s','f-km-e']
     .forEach(id=>document.getElementById(id).value='');
+};
+
+/* ── 備份 JSON ── */
+window._backupJSON = function(){
+  const data = records.map(({ fbKey, ...r }) => r);
+  const json = JSON.stringify({ exportedAt: new Date().toISOString(), total: data.length, records: data }, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }));
+  a.download = `公務車備份_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
 };
 
 /* ── 匯出CSV ── */
@@ -598,6 +631,9 @@ window._switchTab = function(tab, btn){
   document.getElementById('page-'+tab).classList.add('active');
   btn.classList.add('active');
 };
+
+/* ── 每分鐘自動更新狀態顏色 ── */
+setInterval(()=>{ if(document.getElementById('page-board').classList.contains('active')) renderBoard(); }, 60000);
 
 /* ── 搜尋即時過濾 ── */
 document.getElementById('search').addEventListener('input', renderForm);
