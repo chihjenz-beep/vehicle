@@ -221,7 +221,29 @@ tr:hover td{background:#eff6ff;}
 .td-note{font-size:12px;color:var(--muted);min-width:80px;}
 .board-empty{text-align:center;padding:48px;color:var(--muted);font-size:13px;}
 
-/* 底欄 */
+/* 出勤燈箱 */
+.duty-lamp{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:6px 18px;border-radius:6px;
+  font-size:18px;font-weight:700;letter-spacing:4px;
+  font-family:'Noto Sans TC',sans-serif;
+  border:2px solid;
+  transition:all .4s ease;
+  user-select:none;
+}
+.duty-off{
+  background:#f1f5f9;color:#cbd5e1;border-color:#e2e8f0;
+  box-shadow:none;
+}
+.duty-on{
+  background:#c41a1a;color:#fff;border-color:#991b1b;
+  box-shadow:0 0 16px rgba(196,26,26,0.5), 0 0 40px rgba(196,26,26,0.25);
+  animation:lampPulse 2s ease-in-out infinite;
+}
+@keyframes lampPulse{
+  0%,100%{box-shadow:0 0 16px rgba(196,26,26,0.5),0 0 40px rgba(196,26,26,0.25);}
+  50%{box-shadow:0 0 24px rgba(196,26,26,0.8),0 0 60px rgba(196,26,26,0.4);}
+}
 .board-footer{
   display:flex;align-items:center;justify-content:space-between;
   padding:9px 40px;border-top:1px solid var(--border);
@@ -312,7 +334,10 @@ tr:hover td{background:#eff6ff;}
     <div class="board-header">
       <div style="width:200px;"></div>
       <div class="board-title-block">
-        <div class="board-title">公務車出勤紀錄</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:20px;">
+          <div class="board-title">公務車出勤紀錄</div>
+          <div id="duty-lamp" class="duty-lamp duty-off">出勤中</div>
+        </div>
         <div class="board-subtitle">嘉義縣平安家園多元關懷協會　
           <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);font-weight:700;letter-spacing:2px;">BEW-0903</span>
         </div>
@@ -414,9 +439,27 @@ function tick(){
   document.getElementById('board-date').textContent = d;
   document.getElementById('board-footer-right').textContent =
     `資料日期：${now.getFullYear()} 年 ${now.getMonth()+1} 月 ${now.getDate()} 日`;
+  // 燈箱判斷
+  updateLamp(now);
 }
 setInterval(tick, 1000); tick();
 setInterval(()=>{ if(records.length) renderBoard(); }, 60000);
+
+/* ── 燈箱判斷 ── */
+function updateLamp(now){
+  const lamp = document.getElementById('duty-lamp');
+  if(!lamp) return;
+  const today = now.toISOString().slice(0,10);
+  const cur = now.getHours()*60 + now.getMinutes();
+  const hm = h => { if(!h) return null; const [a,b]=(h||'').split(':'); const v=parseInt(a)*60+parseInt(b||0); return isNaN(v)?null:v; };
+  const onDuty = records.some(r => {
+    if(r.date !== today) return false;
+    const s = hm(r.start), e = hm(r.end);
+    if(s===null || e===null) return false;
+    return cur >= s && cur <= e;
+  });
+  lamp.className = 'duty-lamp ' + (onDuty ? 'duty-on' : 'duty-off');
+}
 
 /* ── Firebase 即時監聽 ── */
 onValue(recordsRef, (snapshot) => {
