@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>公務車管理看板｜平安家園</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root {
   --bg:#f0f4f8; --panel:#ffffff; --panel2:#f7f9fc;
@@ -244,6 +246,24 @@ tr:hover td{background:#eff6ff;}
   0%,100%{box-shadow:0 0 16px rgba(196,26,26,0.5),0 0 40px rgba(196,26,26,0.25);}
   50%{box-shadow:0 0 24px rgba(196,26,26,0.8),0 0 60px rgba(196,26,26,0.4);}
 }
+
+/* 訊號中斷警示 */
+.signal-lost .board-tbl-head{
+  background:#fef3c7;
+}
+.signal-lost #map-updated{
+  color:#b45309;font-weight:700;
+  animation:signalBlink 1.2s ease-in-out infinite;
+}
+@keyframes signalBlink{
+  0%,100%{opacity:1;}
+  50%{opacity:0.35;}
+}
+.marker-lost{
+  filter:grayscale(1) opacity(0.6);
+  animation:signalBlink 1.2s ease-in-out infinite;
+}
+
 .board-footer{
   display:flex;align-items:center;justify-content:space-between;
   padding:9px 40px;border-top:1px solid var(--border);
@@ -312,13 +332,13 @@ tr:hover td{background:#eff6ff;}
           <col style="width:36px"><col style="width:88px"><col style="width:72px">
           <col style="width:72px"><col style="width:110px"><col style="width:110px">
           <col style="width:110px"><col style="width:80px"><col style="width:88px">
-          <col style="width:88px"><col style="width:60px">
+          <col style="width:88px"><col style="width:90px"><col style="width:60px">
         </colgroup>
         <thead>
           <tr>
             <th>#</th><th>日期</th><th>開始</th><th>結束</th>
             <th>出發地點</th><th>目的地點</th><th>用途</th>
-            <th>駕駛員</th><th>開始里程</th><th>結束里程</th><th></th>
+            <th>駕駛員</th><th>開始里程</th><th>結束里程</th><th>駕駛員定位</th><th></th>
           </tr>
         </thead>
         <tbody id="form-tbody"></tbody>
@@ -369,6 +389,13 @@ tr:hover td{background:#eff6ff;}
       </div>
 
       <div class="board-main">
+        <div class="board-tbl-wrap" style="margin-bottom:14px;" id="map-card">
+          <div class="board-tbl-head">
+            <div class="board-tbl-title"><div class="live-dot" id="map-live-dot" style="display:none;"></div>駕駛員即時位置</div>
+            <div class="updated" id="map-updated">尚未啟動追蹤</div>
+          </div>
+          <div id="vehicle-map" style="height:280px;width:100%;"></div>
+        </div>
         <div class="board-tbl-wrap">
           <div class="board-tbl-head">
             <div class="board-tbl-title"><div class="live-dot"></div>完整出勤紀錄</div>
@@ -423,9 +450,26 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const recordsRef = ref(db, 'vehicle_records');
+const locationRef = ref(db, 'vehicle_location');
 
 const DAYS = ['日','一','二','三','四','五','六'];
 let records = []; // { fbKey, ...data }
+window._activeTrackKey = null;
+let watchId = null;
+let map = null;
+let marker = null;
+
+/* ── 地圖初始化（只在看板頁面用得到，延遲初始化）── */
+function initMap(){
+  if(map) return;
+  const mapDiv = document.getElementById('vehicle-map');
+  if(!mapDiv || typeof L === 'undefined') return;
+  map = L.map('vehicle-map').setView([23.4518, 120.2554], 13); // 預設嘉義縣中心
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+}
 
 function pad(n){ return String(n).padStart(2,'0'); }
 
@@ -463,6 +507,101 @@ function updateLamp(now){
   lamp.className = 'duty-lamp ' + (onDuty ? 'duty-on' : 'duty-off');
 }
 
+/* ── 監聽位置資料（即時更新地圖）── */
+let lastLocTs = null;
+let lastLocDriver = '';
+
+onValue(locationRef, (snapshot) => {
+  const liveDot = document.getElementById('map-live-dot');
+  const updatedEl = document.getElementById('map-updated');
+  const mapCard = document.getElementById('map-card');
+  if(!snapshot.exists()){
+    if(liveDot) liveDot.style.display = 'none';
+    if(updatedEl) updatedEl.textContent = '尚未啟動追蹤';
+    lastLocTs = null;
+    if(mapCard) mapCard.classList.remove('signal-lost');
+    return;
+  }
+  const loc = snapshot.val();
+  if(!loc.active){
+    if(liveDot) liveDot.style.display = 'none';
+    if(updatedEl) updatedEl.textContent = `追蹤已停止（最後位置 ${loc.driver||''}）`;
+    lastLocTs = null;
+    if(mapCard) mapCard.classList.remove('signal-lost');
+    return;
+  }
+  if(liveDot) liveDot.style.display = 'block';
+  lastLocTs = loc.ts;
+  lastLocDriver = loc.driver || '';
+  if(mapCard) mapCard.classList.remove('signal-lost');
+  const now = new Date();
+  if(updatedEl) updatedEl.textContent = `${loc.driver||''} 即時位置・更新於 ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  initMap();
+  if(!map) return;
+  const latlng = [loc.lat, loc.lng];
+  if(marker){
+    marker.setLatLng(latlng);
+  } else {
+    marker = L.marker(latlng, {
+      icon: L.divIcon({
+        className: '',
+        html: '<div style="width:18px;height:18px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 0 0 4px rgba(220,38,38,0.3),0 2px 6px rgba(0,0,0,0.3);"></div>',
+        iconSize: [18,18], iconAnchor: [9,9]
+      })
+    }).addTo(map);
+  }
+  marker.bindPopup(`<b>${loc.driver||'駕駛員'}</b><br>${loc.purpose||''}`);
+  map.setView(latlng, map.getZoom() < 14 ? 16 : map.getZoom());
+});
+
+/* ── 開始追蹤 ── */
+window._startTrack = function(fbKey){
+  const r = records.find(x=>x.fbKey===fbKey);
+  if(!r) return;
+  if(!navigator.geolocation){
+    alert('此瀏覽器不支援定位功能');
+    return;
+  }
+  if(watchId !== null){
+    alert('已有一筆紀錄正在追蹤中，請先停止');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    () => {
+      window._activeTrackKey = fbKey;
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          set(locationRef, {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            driver: r.driver,
+            purpose: r.purpose,
+            active: true,
+            ts: Date.now()
+          });
+        },
+        (err) => { alert('定位失敗：'+err.message); window._stopTrack(); },
+        { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
+      );
+      renderForm();
+    },
+    (err) => alert('需要允許定位權限才能開始追蹤：'+err.message),
+    { enableHighAccuracy:true }
+  );
+};
+
+/* ── 停止追蹤 ── */
+window._stopTrack = function(){
+  if(watchId !== null){
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  set(locationRef, { active:false, ts:Date.now() });
+  window._activeTrackKey = null;
+  renderForm();
+};
+
 /* ── Firebase 即時監聽 ── */
 onValue(recordsRef, (snapshot) => {
   records = [];
@@ -491,7 +630,7 @@ function renderForm(){
   document.getElementById('form-badge').textContent = filtered.length + ' 筆';
   const tbody = document.getElementById('form-tbody');
   if(!filtered.length){
-    tbody.innerHTML='<tr class="empty-row"><td colspan="11">尚無紀錄，請在上方填寫新增</td></tr>';
+    tbody.innerHTML='<tr class="empty-row"><td colspan="12">尚無紀錄，請在上方填寫新增</td></tr>';
     return;
   }
   tbody.innerHTML = filtered.map((r,i) => `
@@ -506,11 +645,21 @@ function renderForm(){
       <td style="font-size:12px;font-weight:500">${r.driver||'—'}</td>
       <td class="mono" style="font-size:12px;color:var(--accent2)">${r.kmS||'—'}</td>
       <td class="mono" style="font-size:12px;color:var(--accent2)">${r.kmE||'—'}</td>
+      <td style="white-space:nowrap">${trackButton(r)}</td>
       <td style="white-space:nowrap">
         <button class="danger-sm" style="color:var(--accent2);font-size:13px;" onclick="window._edit('${r.fbKey}')">✎</button>
         <button class="danger-sm" onclick="window._del('${r.fbKey}')">×</button>
       </td>
     </tr>`).join('');
+}
+
+/* ── 追蹤按鈕 ── */
+function trackButton(r){
+  const isTracking = window._activeTrackKey === r.fbKey;
+  if(isTracking){
+    return `<button class="btn" style="padding:4px 10px;font-size:11px;background:#fee2e2;border-color:#fca5a5;color:#dc2626;" onclick="window._stopTrack()" title="僅駕駛員本人手機可操作">⏹ 停止回報位置</button>`;
+  }
+  return `<button class="btn" style="padding:4px 10px;font-size:11px;" onclick="window._startTrack('${r.fbKey}')" title="僅駕駛員本人手機可操作">📍 開始回報位置</button>`;
 }
 
 /* ── 看板渲染 ── */
@@ -554,6 +703,25 @@ function renderBoard(){
   document.getElementById('board-updated').textContent =
     `最後更新 ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
+
+/* ── 訊號中斷偵測（每秒檢查，超過2分鐘未更新視為中斷）── */
+const SIGNAL_TIMEOUT_MS = 2 * 60 * 1000;
+setInterval(() => {
+  if(lastLocTs === null) return;
+  const elapsed = Date.now() - lastLocTs;
+  const mapCard = document.getElementById('map-card');
+  const updatedEl = document.getElementById('map-updated');
+  const liveDot = document.getElementById('map-live-dot');
+  if(elapsed > SIGNAL_TIMEOUT_MS){
+    if(mapCard) mapCard.classList.add('signal-lost');
+    if(liveDot) liveDot.style.display = 'none';
+    if(updatedEl) updatedEl.innerHTML = `⚠️ ${lastLocDriver} 駕駛員手機進行多工，訊號暫時中斷`;
+    if(marker){
+      const el = marker.getElement();
+      if(el) el.classList.add('marker-lost');
+    }
+  }
+}, 1000);
 
 /* ── 新增（寫入Firebase）── */
 window._addRecord = function(){
@@ -655,6 +823,12 @@ window._switchTab = function(tab, btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+tab).classList.add('active');
   btn.classList.add('active');
+  if(tab === 'board'){
+    setTimeout(() => {
+      initMap();
+      if(map) map.invalidateSize();
+    }, 50);
+  }
 };
 
 /* ── 每分鐘自動更新狀態顏色 ── */
