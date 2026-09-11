@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2563eb">
+<title>駕駛員位置回報｜平安家園</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0f4f8;--card:#fff;--border:#d0dce8;
+  --accent:#2563eb;--accent2:#0ea579;--accent3:#d97706;
+  --danger:#dc2626;--text:#1e293b;--muted:#64748b;--muted2:#94a3b8;
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Noto Sans TC',sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;min-height:100dvh;
+  display:flex;flex-direction:column;
+}
+
+/* ── 頂欄 ── */
+.topbar{
+  background:#fff;border-bottom:1px solid var(--border);
+  padding:14px 20px;display:flex;align-items:center;gap:12px;
+  box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  flex-shrink:0;
+}
+.org-logo{
+  width:36px;height:36px;border-radius:8px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;color:#fff;
+}
+.org-name{font-size:13px;font-weight:600;color:var(--text);}
+.org-sub{font-size:11px;color:var(--muted);}
+.topbar-right{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--accent);}
+
+/* ── 主內容 ── */
+.main{flex:1;padding:20px 16px;display:flex;flex-direction:column;gap:16px;max-width:480px;margin:0 auto;width:100%;}
+
+/* ── 卡片 ── */
+.card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);padding:18px 16px;
+  box-shadow:0 1px 4px rgba(0,0,0,0.05);
+}
+.card-title{
+  font-size:12px;font-weight:600;color:var(--muted);
+  letter-spacing:.5px;margin-bottom:12px;
+  display:flex;align-items:center;gap:6px;
+}
+
+/* ── 表單 ── */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.field:last-child{margin-bottom:0;}
+.field label{font-size:12px;font-weight:500;color:var(--muted);}
+.field input,.field select{
+  font-size:15px;padding:11px 13px;
+  border:1px solid var(--border);border-radius:8px;
+  background:#f8fafc;color:var(--text);
+  font-family:'Noto Sans TC',sans-serif;
+  -webkit-appearance:none;
+}
+.field input:focus,.field select:focus{
+  outline:none;border-color:var(--accent);background:#fff;
+}
+
+/* ── 狀態卡 ── */
+.status-idle{
+  text-align:center;padding:24px 16px;
+  border:2px dashed var(--border);border-radius:var(--radius);
+  color:var(--muted);font-size:14px;
+}
+.status-active{
+  background:linear-gradient(135deg,#eff6ff,#f0fdf4);
+  border:1.5px solid #bfdbfe;border-radius:var(--radius);
+  padding:18px 16px;
+}
+.status-label{
+  display:flex;align-items:center;gap:8px;
+  font-size:15px;font-weight:700;color:var(--accent);margin-bottom:12px;
+}
+.live-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:var(--accent2);flex-shrink:0;
+  animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(14,165,121,.4);}50%{box-shadow:0 0 0 8px rgba(14,165,121,0);}}
+
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.info-item{
+  background:#fff;border:1px solid #e0e7ff;border-radius:8px;
+  padding:10px 12px;
+}
+.info-item-label{font-size:10px;color:var(--muted);margin-bottom:3px;}
+.info-item-value{
+  font-family:'JetBrains Mono',monospace;
+  font-size:14px;font-weight:600;color:var(--text);
+}
+.info-item-value.speed-normal{color:var(--accent2);}
+.info-item-value.speed-moving{color:var(--accent);}
+.info-item-value.speed-alert{color:var(--danger);animation:blink 1s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+.speed-warning{
+  background:#fef2f2;border:1px solid #fecaca;border-radius:8px;
+  padding:10px 12px;color:var(--danger);font-size:13px;font-weight:600;
+  text-align:center;margin-bottom:8px;
+  animation:blink 1s ease-in-out infinite;
+}
+
+.update-time{font-size:11px;color:var(--muted);text-align:right;font-family:'JetBrains Mono',monospace;}
+
+/* ── 按鈕 ── */
+.btn-start{
+  width:100%;padding:15px;font-size:16px;font-weight:700;
+  background:var(--accent);color:#fff;border:none;border-radius:10px;
+  cursor:pointer;font-family:'Noto Sans TC',sans-serif;
+  box-shadow:0 4px 12px rgba(37,99,235,0.3);
+  transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-start:active{transform:scale(0.98);}
+.btn-stop{
+  width:100%;padding:15px;font-size:16px;font-weight:700;
+  background:var(--danger);color:#fff;border:none;border-radius:10px;
+  cursor:pointer;font-family:'Noto Sans TC',sans-serif;
+  box-shadow:0 4px 12px rgba(220,38,38,0.3);
+  transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-stop:active{transform:scale(0.98);}
+.btn-disabled{
+  width:100%;padding:15px;font-size:16px;font-weight:700;
+  background:var(--muted2);color:#fff;border:none;border-radius:10px;
+  cursor:not-allowed;font-family:'Noto Sans TC',sans-serif;
+}
+
+/* ── 說明文字 ── */
+.hint{font-size:11px;color:var(--muted);text-align:center;line-height:1.6;padding:0 4px;}
+.hint b{color:var(--text);}
+
+/* ── 底欄 ── */
+.bottombar{
+  padding:10px 16px;text-align:center;
+  font-size:11px;color:var(--muted2);
+  border-top:1px solid var(--border);background:#fff;
+  flex-shrink:0;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="org-logo">平</div>
+  <div>
+    <div class="org-name">嘉義縣平安家園多元關懷協會</div>
+    <div class="org-sub">駕駛員位置回報系統</div>
+  </div>
+  <div class="topbar-right" id="clock">--:--</div>
+</div>
+
+<div class="main">
+
+  <!-- 填寫資料 -->
+  <div class="card" id="form-card">
+    <div class="card-title">👤 回報資料</div>
+    <div class="field">
+      <label>駕駛員姓名</label>
+      <input type="text" id="f-driver" placeholder="請輸入姓名">
+    </div>
+    <div class="field">
+      <label>用途</label>
+      <input type="text" id="f-purpose" placeholder="例：接送病患、行政公務">
+    </div>
+  </div>
+
+  <!-- 狀態顯示 -->
+  <div class="card">
+    <div class="card-title">📡 回報狀態</div>
+    <div id="status-idle" class="status-idle">尚未開始回報位置</div>
+    <div id="status-active" class="status-active" style="display:none;">
+      <div class="status-label"><div class="live-dot"></div>位置回報中</div>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-item-label">當前速度</div>
+          <div class="info-item-value" id="disp-speed">— km/h</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item-label">定位精確度</div>
+          <div class="info-item-value" id="disp-accuracy">—</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item-label">緯度</div>
+          <div class="info-item-value" id="disp-lat">—</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item-label">經度</div>
+          <div class="info-item-value" id="disp-lng">—</div>
+        </div>
+      </div>
+      <div id="speed-warning" class="speed-warning" style="display:none;">🚨 超速警示！請注意行車安全</div>
+      <div class="update-time" id="disp-update">尚未回傳</div>
+    </div>
+  </div>
+
+  <!-- 超速門檻設定 -->
+  <div class="card">
+    <div class="card-title">⚙️ 超速門檻設定</div>
+    <div class="field">
+      <label>道路類型</label>
+      <select id="road-type-driver">
+        <option value="60">一般道路（60 km/h）</option>
+        <option value="100">快速道路（100 km/h）</option>
+        <option value="110">高速公路（110 km/h）</option>
+        <option value="custom">自訂門檻…</option>
+      </select>
+    </div>
+    <div class="field" id="custom-limit-field" style="display:none;">
+      <label>自訂門檻（km/h）</label>
+      <input type="number" id="custom-limit" value="60" min="0" step="5" placeholder="輸入速度">
+    </div>
+  </div>
+
+  <!-- 操作按鈕 -->
+  <div id="btn-area">
+    <button class="btn-start" id="btn-start" onclick="startTracking()">
+      📍 開始回報位置
+    </button>
+  </div>
+
+  <p class="hint">
+    <b>使用說明：</b>填寫姓名與用途後點「開始回報位置」，<br>
+    請保持此頁面在螢幕最上層，切換至其他 App 時位置回報將暫停。<br>
+    抵達目的地後請點「停止回報」。
+  </p>
+
+</div>
+
+<div class="bottombar">此頁面僅供駕駛員本人使用・僅顯示手機定位位置</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBxz9NGnpnF6lzy5TcRGWFOrDYFIVkGpjw",
+  authDomain: "vehicle-b4ae5.firebaseapp.com",
+  projectId: "vehicle-b4ae5",
+  storageBucket: "vehicle-b4ae5.firebasestorage.app",
+  messagingSenderId: "623928657886",
+  appId: "1:623928657886:web:c09ccbb9cfd30c9b0b3f4f",
+  databaseURL: "https://vehicle-b4ae5-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const locationRef = ref(db, 'vehicle_location');
+
+let watchId = null;
+let isTracking = false;
+
+/* ── 時鐘 ── */
+function pad(n){ return String(n).padStart(2,'0'); }
+function tick(){
+  const now = new Date();
+  document.getElementById('clock').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+setInterval(tick, 1000); tick();
+
+/* ── 道路類型切換 ── */
+document.getElementById('road-type-driver').addEventListener('change', function(){
+  document.getElementById('custom-limit-field').style.display =
+    this.value === 'custom' ? 'block' : 'none';
+});
+
+/* ── 取得門檻 ── */
+function getSpeedLimit(){
+  const rt = document.getElementById('road-type-driver').value;
+  if(rt === 'custom') return parseFloat(document.getElementById('custom-limit').value) || 60;
+  return parseFloat(rt) || 60;
+}
+
+/* ── 開始回報 ── */
+window.startTracking = function(){
+  const driver = document.getElementById('f-driver').value.trim();
+  const purpose = document.getElementById('f-purpose').value.trim();
+  if(!driver){ alert('請先填寫駕駛員姓名'); return; }
+  if(!navigator.geolocation){ alert('此瀏覽器不支援定位功能'); return; }
+
+  document.getElementById('btn-area').innerHTML =
+    `<button class="btn-disabled" disabled>定位中，請稍候…</button>`;
+
+  navigator.geolocation.getCurrentPosition(
+    () => {
+      isTracking = true;
+      document.getElementById('form-card').style.opacity = '0.6';
+      document.getElementById('f-driver').disabled = true;
+      document.getElementById('f-purpose').disabled = true;
+      document.getElementById('status-idle').style.display = 'none';
+      document.getElementById('status-active').style.display = 'block';
+      document.getElementById('btn-area').innerHTML =
+        `<button class="btn-stop" onclick="stopTracking()">⏹ 停止回報位置</button>`;
+
+      // 嘗試保持螢幕常亮（支援 Wake Lock API 的瀏覽器）
+      if('wakeLock' in navigator){
+        navigator.wakeLock.request('screen').catch(()=>{});
+      }
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const speedMs = pos.coords.speed;
+          const speedKmh = (speedMs !== null && speedMs >= 0) ? Math.round(speedMs * 3.6) : null;
+          const limit = getSpeedLimit();
+          const isSpeeding = speedKmh !== null && speedKmh > limit;
+
+          // 更新畫面
+          const speedEl = document.getElementById('disp-speed');
+          if(speedKmh !== null){
+            speedEl.textContent = `${speedKmh} km/h`;
+            speedEl.className = 'info-item-value ' + (isSpeeding ? 'speed-alert' : speedKmh > 3 ? 'speed-moving' : 'speed-normal');
+          } else {
+            speedEl.textContent = '— km/h';
+            speedEl.className = 'info-item-value';
+          }
+          document.getElementById('speed-warning').style.display = isSpeeding ? 'block' : 'none';
+          document.getElementById('disp-accuracy').textContent =
+            pos.coords.accuracy ? `±${Math.round(pos.coords.accuracy)} m` : '—';
+          document.getElementById('disp-lat').textContent = pos.coords.latitude.toFixed(5);
+          document.getElementById('disp-lng').textContent = pos.coords.longitude.toFixed(5);
+          const now = new Date();
+          document.getElementById('disp-update').textContent =
+            `最後回傳 ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+          // 上傳 Firebase
+          set(locationRef, {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            speed: speedKmh,
+            accuracy: Math.round(pos.coords.accuracy||0),
+            driver, purpose,
+            active: true,
+            ts: Date.now()
+          });
+        },
+        (err) => {
+          alert('定位失敗：' + err.message);
+          stopTracking();
+        },
+        { enableHighAccuracy:true, maximumAge:5000, timeout:20000 }
+      );
+    },
+    (err) => {
+      alert('需要允許定位權限：' + err.message);
+      document.getElementById('btn-area').innerHTML =
+        `<button class="btn-start" onclick="startTracking()">📍 開始回報位置</button>`;
+    },
+    { enableHighAccuracy:true }
+  );
+};
+
+/* ── 停止回報 ── */
+window.stopTracking = function(){
+  if(watchId !== null){
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  isTracking = false;
+  set(locationRef, { active:false, ts:Date.now() });
+
+  document.getElementById('form-card').style.opacity = '1';
+  document.getElementById('f-driver').disabled = false;
+  document.getElementById('f-purpose').disabled = false;
+  document.getElementById('status-idle').style.display = 'block';
+  document.getElementById('status-active').style.display = 'none';
+  document.getElementById('speed-warning').style.display = 'none';
+  document.getElementById('btn-area').innerHTML =
+    `<button class="btn-start" onclick="startTracking()">📍 開始回報位置</button>`;
+};
+
+/* ── 離開頁面前自動停止 ── */
+window.addEventListener('beforeunload', () => {
+  if(isTracking){
+    if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+    set(locationRef, { active:false, ts:Date.now() });
+  }
+});
+</script>
+</body>
+</html>

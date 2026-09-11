@@ -392,7 +392,23 @@ tr:hover td{background:#eff6ff;}
         <div class="board-tbl-wrap" style="margin-bottom:14px;" id="map-card">
           <div class="board-tbl-head">
             <div class="board-tbl-title"><div class="live-dot" id="map-live-dot" style="display:none;"></div>駕駛員即時位置</div>
-            <div class="updated" id="map-updated">尚未啟動追蹤</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);">
+                <span>道路類型</span>
+                <select id="road-type"
+                  style="padding:3px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:'Noto Sans TC',sans-serif;background:#fff;color:var(--text);">
+                  <option value="60">一般道路（60）</option>
+                  <option value="100">快速道路（100）</option>
+                  <option value="110">高速公路（110）</option>
+                  <option value="custom">自訂門檻…</option>
+                </select>
+                <input type="number" id="speed-limit" value="60" min="0" step="5"
+                  style="display:none;width:54px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px;font-family:'JetBrains Mono',monospace;text-align:center;">
+                <span id="speed-limit-unit">km/h</span>
+              </div>
+              <div id="map-speed" style="display:none;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--accent2);background:rgba(14,165,121,0.1);padding:3px 10px;border-radius:6px;">— km/h</div>
+              <div class="updated" id="map-updated">尚未啟動追蹤</div>
+            </div>
           </div>
           <div id="vehicle-map" style="height:280px;width:100%;"></div>
         </div>
@@ -510,22 +526,26 @@ function updateLamp(now){
 /* ── 監聽位置資料（即時更新地圖）── */
 let lastLocTs = null;
 let lastLocDriver = '';
+let lastLocData = null;
 
-onValue(locationRef, (snapshot) => {
+function applyLocationUpdate(loc){
   const liveDot = document.getElementById('map-live-dot');
   const updatedEl = document.getElementById('map-updated');
   const mapCard = document.getElementById('map-card');
-  if(!snapshot.exists()){
+  const speedEl = document.getElementById('map-speed');
+
+  if(!loc){
     if(liveDot) liveDot.style.display = 'none';
     if(updatedEl) updatedEl.textContent = '尚未啟動追蹤';
+    if(speedEl) speedEl.style.display = 'none';
     lastLocTs = null;
     if(mapCard) mapCard.classList.remove('signal-lost');
     return;
   }
-  const loc = snapshot.val();
   if(!loc.active){
     if(liveDot) liveDot.style.display = 'none';
     if(updatedEl) updatedEl.textContent = `追蹤已停止（最後位置 ${loc.driver||''}）`;
+    if(speedEl) speedEl.style.display = 'none';
     lastLocTs = null;
     if(mapCard) mapCard.classList.remove('signal-lost');
     return;
@@ -537,23 +557,95 @@ onValue(locationRef, (snapshot) => {
   const now = new Date();
   if(updatedEl) updatedEl.textContent = `${loc.driver||''} 即時位置・更新於 ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
+  /* 速度顯示與超速判斷 */
+  const speedLimit = getSpeedLimit();
+  let isSpeeding = false;
+  if(speedEl){
+    if(loc.speed !== null && loc.speed !== undefined){
+      speedEl.style.display = 'block';
+      isSpeeding = loc.speed > speedLimit;
+      if(isSpeeding){
+        speedEl.textContent = `🚨 ${loc.speed} km/h 超速`;
+        speedEl.style.color = '#dc2626';
+        speedEl.style.background = 'rgba(220,38,38,0.12)';
+        speedEl.style.animation = 'signalBlink 1s ease-in-out infinite';
+      } else if(loc.speed > 3){
+        speedEl.textContent = `🚗 ${loc.speed} km/h`;
+        speedEl.style.color = 'var(--accent2)';
+        speedEl.style.background = 'rgba(14,165,121,0.1)';
+        speedEl.style.animation = 'none';
+      } else {
+        speedEl.textContent = `🚗 ${loc.speed} km/h`;
+        speedEl.style.color = 'var(--muted)';
+        speedEl.style.background = 'rgba(148,163,184,0.15)';
+        speedEl.style.animation = 'none';
+      }
+    } else {
+      speedEl.style.display = 'block';
+      speedEl.textContent = '— km/h';
+      speedEl.style.color = 'var(--muted)';
+      speedEl.style.background = 'rgba(148,163,184,0.15)';
+      speedEl.style.animation = 'none';
+    }
+  }
+
   initMap();
   if(!map) return;
   const latlng = [loc.lat, loc.lng];
+  const dotColor = isSpeeding ? '#dc2626' : '#dc2626';
+  const dotHtml = isSpeeding
+    ? '<div style="width:20px;height:20px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 0 0 4px rgba(220,38,38,0.5),0 0 16px rgba(220,38,38,0.6);animation:signalBlink 1s ease-in-out infinite;"></div>'
+    : '<div style="width:18px;height:18px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 0 0 4px rgba(220,38,38,0.3),0 2px 6px rgba(0,0,0,0.3);"></div>';
   if(marker){
     marker.setLatLng(latlng);
+    marker.setIcon(L.divIcon({ className:'', html: dotHtml, iconSize:[20,20], iconAnchor:[10,10] }));
   } else {
     marker = L.marker(latlng, {
-      icon: L.divIcon({
-        className: '',
-        html: '<div style="width:18px;height:18px;border-radius:50%;background:#dc2626;border:3px solid #fff;box-shadow:0 0 0 4px rgba(220,38,38,0.3),0 2px 6px rgba(0,0,0,0.3);"></div>',
-        iconSize: [18,18], iconAnchor: [9,9]
-      })
+      icon: L.divIcon({ className:'', html: dotHtml, iconSize:[20,20], iconAnchor:[10,10] })
     }).addTo(map);
   }
-  marker.bindPopup(`<b>${loc.driver||'駕駛員'}</b><br>${loc.purpose||''}`);
+  const speedText = (loc.speed !== null && loc.speed !== undefined)
+    ? `${loc.speed} km/h${isSpeeding ? ' <span style="color:#dc2626;font-weight:700;">⚠️超速</span>' : ''}`
+    : '速度未知';
+  marker.bindPopup(`<b>${loc.driver||'駕駛員'}</b><br>${loc.purpose||''}<br>速度：${speedText}`);
   map.setView(latlng, map.getZoom() < 14 ? 16 : map.getZoom());
+}
+
+onValue(locationRef, (snapshot) => {
+  lastLocData = snapshot.exists() ? snapshot.val() : null;
+  applyLocationUpdate(lastLocData);
 });
+
+/* 道路類型切換邏輯 */
+function getSpeedLimit(){
+  const roadType = document.getElementById('road-type');
+  const limitInput = document.getElementById('speed-limit');
+  if(!roadType) return 60;
+  if(roadType.value === 'custom'){
+    return limitInput ? (parseFloat(limitInput.value) || 60) : 60;
+  }
+  return parseFloat(roadType.value) || 60;
+}
+
+/* 超速門檻變更時，立即用最新資料重新套用判斷 */
+function bindSpeedLimitEvents(){
+  const roadType = document.getElementById('road-type');
+  const limitInput = document.getElementById('speed-limit');
+  if(roadType){
+    roadType.addEventListener('change', () => {
+      if(limitInput) limitInput.style.display = (roadType.value === 'custom') ? 'inline-block' : 'none';
+      if(roadType.value === 'custom' && limitInput) limitInput.value = limitInput.value || 60;
+      if(lastLocData) applyLocationUpdate(lastLocData);
+    });
+  }
+  if(limitInput){
+    limitInput.addEventListener('input', () => {
+      if(lastLocData) applyLocationUpdate(lastLocData);
+    });
+  }
+}
+document.addEventListener('DOMContentLoaded', bindSpeedLimitEvents);
+window.addEventListener('load', bindSpeedLimitEvents);
 
 /* ── 開始追蹤 ── */
 window._startTrack = function(fbKey){
@@ -572,9 +664,12 @@ window._startTrack = function(fbKey){
       window._activeTrackKey = fbKey;
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
+          const speedMs = pos.coords.speed; // 公尺/秒，可能為 null
+          const speedKmh = (speedMs !== null && speedMs >= 0) ? Math.round(speedMs * 3.6) : null;
           set(locationRef, {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
+            speed: speedKmh,
             driver: r.driver,
             purpose: r.purpose,
             active: true,
@@ -712,9 +807,11 @@ setInterval(() => {
   const mapCard = document.getElementById('map-card');
   const updatedEl = document.getElementById('map-updated');
   const liveDot = document.getElementById('map-live-dot');
+  const speedEl = document.getElementById('map-speed');
   if(elapsed > SIGNAL_TIMEOUT_MS){
     if(mapCard) mapCard.classList.add('signal-lost');
     if(liveDot) liveDot.style.display = 'none';
+    if(speedEl) speedEl.style.display = 'none';
     if(updatedEl) updatedEl.innerHTML = `⚠️ ${lastLocDriver} 駕駛員手機進行多工，訊號暫時中斷`;
     if(marker){
       const el = marker.getElement();
